@@ -1,0 +1,12 @@
+{
+  "name": "lanqiao-embedded-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "蓝桥杯嵌入式 CT117E-M4 / STM32G431 浏览器仿真实验台",
+  "license": "GPL-2.0-only",
+  "scripts": {
+    "start": "node serve.cjs",
+    "check": "node --check serve.cjs && node --check tests/smoke.cjs && node --check site/app.js && node --check site/elf.js && node --check site/lcd.js && node --check site/machine.js && node --check site/worker.js",
+    "test": "node tests/smoke.cjs"
+  }
+}

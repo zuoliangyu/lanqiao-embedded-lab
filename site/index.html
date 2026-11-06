@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>蓝桥杯嵌入式在线实验台 · CT117E</title>
+    <link rel="icon" href="icon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <div>
+          <div class="eyebrow">蓝桥杯嵌入式 <span></span> CT117E–M4</div>
+          <h1>STM32 在线实验台</h1>
+          <p>载入程序，操作外设，观察每一次响应。</p>
+        </div>
+        <div class="header-actions">
+          <button class="text-button" id="help-button">使用说明</button
+          ><button class="upload" id="choose-file">
+            载入 ELF <span>↑</span></button
+          ><input id="firmware" type="file" accept=".elf,.axf" hidden />
+        </div>
+      </header>
+      <section class="toolbar" aria-label="仿真控制">
+        <div class="controls">
+          <button id="run" class="primary" disabled>▶ 烧录并运行</button
+          ><button id="pause" disabled>暂停</button
+          ><button id="reset" disabled>复位</button>
+        </div>
+        <div class="run-settings">
+          <label for="speed">运行倍率</label
+          ><select id="speed">
+            <option value="0.25">0.25×</option>
+            <option value="1" selected>1×</option>
+            <option value="4">4×</option></select
+          ><span class="divider"></span
+          ><span id="status" class="status">等待程序</span>
+        </div>
+      </section>
+      <div id="alert" class="alert" role="alert" hidden></div>
+      <div class="workspace">
+        <section class="lcd-card">
+          <div class="card-title">
+            <h2><span class="number">01</span> LCD 显示屏</h2>
+            <span>320 × 240 · RGB565</span>
+          </div>
+          <div class="screen-frame">
+            <div class="ruler-corner" aria-hidden="true">列 →</div>
+            <div
+              class="column-gutter"
+              aria-label="LCD 列号，按 BSP 每列 16 像素对齐"
+              title="从 0 开始，每列 16 像素，对应 BSP 默认的 16×24 字符"
+            >
+              <span>0</span><span>1</span><span>2</span><span>3</span
+              ><span>4</span> <span>5</span><span>6</span><span>7</span
+              ><span>8</span><span>9</span> <span>10</span><span>11</span
+              ><span>12</span><span>13</span><span>14</span> <span>15</span
+              ><span>16</span><span>17</span><span>18</span><span>19</span>
+            </div>
+            <div
+              class="line-gutter"
+              aria-label="LCD 行号，按 BSP 每行 24 像素对齐"
+              title="对应 BSP 的 Line0～Line9，每行 24 像素；自定义字体或坐标绘图请以程序为准"
+            >
+              <span>Line0</span><span>Line1</span><span>Line2</span
+              ><span>Line3</span><span>Line4</span> <span>Line5</span
+              ><span>Line6</span><span>Line7</span><span>Line8</span
+              ><span>Line9</span>
+            </div>
+            <div class="screen">
+              <canvas
+                id="lcd"
+                width="320"
+                height="240"
+                aria-label="固件驱动的 LCD 画面"
+              ></canvas>
+              <div id="screen-empty">
+                <div class="chip-icon">M4</div>
+                <strong>准备好你的程序</strong>
+                <p>选择 .elf 或 .axf 文件，然后烧录运行</p>
+                <span>STM32G431RBT6</span>
+              </div>
+            </div>
+          </div>
+          <div class="screen-footer">
+            <span><i class="dot"></i> CT117E–M4 V1.2</span
+            ><span id="lcd-writes">等待固件写屏</span>
+          </div>
+        </section>
+        <div class="side-stack">
+          <section class="card firmware-card">
+            <div class="card-title">
+              <h2><span class="number">02</span> 当前程序</h2>
+              <span class="badge">本地执行</span>
+            </div>
+            <div class="file-icon">ELF</div>
+            <h3 id="file-name">尚未载入程序</h3>
+            <p id="file-info">文件只在你的浏览器内读取</p>
+            <dl class="metrics">
+              <div>
+                <dt>仿真时间</dt>
+                <dd id="sim-time">0.000 <small>s</small></dd>
+              </div>
+              <div>
+                <dt>程序计数器</dt>
+                <dd id="pc">—</dd>
+              </div>
+            </dl>
+            <div class="notice" id="program-hint">
+              显示内容由固件决定。程序没有写屏时，LCD 保持黑色。
+            </div>
+          </section>
+          <section class="card">
+            <div class="card-title">
+              <h2><span class="number">03</span> 独立按键</h2>
+              <span class="badge">按住触发</span>
+            </div>
+            <div class="keys">
+              <button class="key" data-key="0">
+                <b>B1</b><small>PB0 · 1</small></button
+              ><button class="key" data-key="1">
+                <b>B2</b><small>PB1 · 2</small></button
+              ><button class="key" data-key="2">
+                <b>B3</b><small>PB2 · 3</small></button
+              ><button class="key" data-key="3">
+                <b>B4</b><small>PA0 · 4</small>
+              </button>
+            </div>
+            <p class="caption">支持鼠标、触屏和键盘 1–4，松开释放</p>
+          </section>
+          <section class="card">
+            <div class="card-title">
+              <h2><span class="number">04</span> LED 指示灯</h2>
+              <span class="badge">8 路</span>
+            </div>
+            <div class="leds" id="leds"></div>
+            <p class="caption">由程序控制，经过 74LS573 锁存</p>
+          </section>
+        </div>
+      </div>
+      <div class="inputs-grid">
+        <section class="card">
+          <div class="card-title">
+            <h2><span class="number">05</span> 模拟输入</h2>
+            <span class="badge">0–3.3 V</span>
+          </div>
+          <div class="slider-label">
+            <label for="adc0">电位器 R38 <small>PB12 / ADC1</small></label
+            ><output id="adc0-value">1.65 <small>V</small></output>
+          </div>
+          <input
+            id="adc0"
+            type="range"
+            min="0"
+            max="3.3"
+            step="0.01"
+            value="1.65"
+          />
+          <div class="slider-label">
+            <label for="adc1">电位器 R37 <small>PB15 / ADC2</small></label
+            ><output id="adc1-value">1.65 <small>V</small></output>
+          </div>
+          <input
+            id="adc1"
+            type="range"
+            min="0"
+            max="3.3"
+            step="0.01"
+            value="1.65"
+          />
+          <p class="caption">对应模板的 ADC 通道与循环 DMA 采样</p>
+        </section>
+        <section class="card">
+          <div class="card-title">
+            <h2><span class="number">06</span> 频率与 PWM</h2>
+            <span class="badge">逻辑信号</span>
+          </div>
+          <div class="slider-label">
+            <label for="frequency">捕获输入 <small>TIM3 / PB4</small></label
+            ><output id="frequency-value">1,000 <small>Hz</small></output>
+          </div>
+          <input
+            id="frequency"
+            type="range"
+            min="0"
+            max="20000"
+            step="100"
+            value="1000"
+          />
+          <div class="pwm-row">
+            <span>TIM1 · CH1</span><strong id="pwm0">未启用</strong>
+          </div>
+          <div class="pwm-row">
+            <span>TIM2 · CH2</span><strong id="pwm1">未启用</strong>
+          </div>
+          <p class="caption">按寄存器计算频率与占空比，非电气波形仿真</p>
+        </section>
+        <section class="card rtc-card">
+          <div class="card-title">
+            <h2><span class="number">07</span> 实时时钟</h2>
+            <span class="badge">RTC</span>
+          </div>
+          <div class="clock" id="rtc">00:00:00</div>
+          <p class="caption">跟随仿真时间运行，初值由固件设置</p>
+          <div class="small-note">暂停时，时钟与程序一起停下。</div>
+        </section>
+      </div>
+      <section class="card serial-card">
+        <div class="card-title">
+          <h2><span class="number">08</span> 串口终端</h2>
+          <button id="clear-serial" class="text-button">清空显示</button>
+        </div>
+        <pre id="serial" aria-label="串口输出">等待 USART1 输出…</pre>
+        <form id="serial-form">
+          <label class="sr-only" for="serial-input">发送到 USART1</label
+          ><input
+            id="serial-input"
+            maxlength="1024"
+            placeholder="输入要发送到 USART1 的内容"
+            autocomplete="off"
+          /><label class="newline"
+            ><input id="newline" type="checkbox" checked /> 换行</label
+          ><button type="submit">发送 ↗</button>
+        </form>
+      </section>
+      <details class="card compatibility" id="help">
+        <summary>使用说明与当前兼容范围 <span>＋</span></summary>
+        <div class="help-body">
+          <p>
+            1. 在 Keil 或 STM32CubeIDE 编译 STM32G431RB 程序，选择生成的 ELF /
+            AXF。2. 点击“烧录并运行”。3. 通过按键、电位器及串口输入与固件交互。
+          </p>
+          <p>
+            已验证 CT117E BSP 的 HAL LCD 示例和 STM32_Xifeng
+            模板。支持基本启动、SysTick、GPIO、LCD、按键、LED，以及模板使用的
+            ADC / DMA、RTC、TIM 和 USART1
+            功能。它是面向这些示例的实验性仿真器，不是完整 G431 芯片模型。
+          </p>
+          <p>
+            仿真采用逻辑时间，不保证指令周期、电气特性或中断延迟与实物一致。USB、SPI
+            Flash、I²C 器件、复杂中断嵌套与 RTOS
+            尚未实现。显示黑屏时，请先检查程序是否调用了显示函数。
+          </p>
+          <label for="lcd-model">LCD 控制器（下次载入或复位生效）</label
+          ><select id="lcd-model">
+            <option value="37669">9325 / 932X</option>
+            <option value="33328">UC8230（实验支持）</option>
+          </select>
+          <p id="unsupported">未检测到未支持的外设访问。</p>
+          <p>
+            程序与文件不会发送到服务器。<a
+              href="../README.md"
+              target="_blank"
+              rel="noopener"
+              id="readme-link"
+              >项目说明</a
+            >
+          </p>
+        </div>
+      </details>
+      <footer>
+        <span><i class="dot"></i> 无需开发板 · 无需服务器 · 文件不上传</span
+        ><span>LANQIAO EMBEDDED LAB <b>/</b> 固件仿真 · 实验版</span>
+      </footer>
+    </main>
+    <script src="app.js" defer></script>
+  </body>
+</html>

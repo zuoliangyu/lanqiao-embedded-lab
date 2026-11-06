@@ -1,0 +1,10 @@
+.codegraph/
+node_modules/
+.playwright-cli/
+test-results/
+*.elf
+*.axf
+*.hex
+*.bin
+*.zip
+*.rgba
