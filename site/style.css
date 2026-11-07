@@ -580,6 +580,31 @@ output {
   font: 19px Consolas, monospace;
   white-space: nowrap;
 }
+.num {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.num small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.num-input {
+  width: 92px;
+  font: 18px Consolas, monospace;
+  text-align: right;
+  color: var(--ink);
+  border: 1px solid transparent;
+  border-bottom: 1px dashed #b9cbc3;
+  border-radius: 4px;
+  background: transparent;
+  padding: 1px 4px;
+}
+.num-input:hover,
+.num-input:focus {
+  border-color: #b9cbc3;
+  background: #fff;
+}
 output small {
   font: 11px "Segoe UI", sans-serif;
 }
@@ -842,7 +867,8 @@ dialog.sheet h2 {
     width: 18px;
     height: 18px;
   }
-  output {
+  output,
+  .num-input {
     font-size: 16px;
   }
   input[type="range"] {

@@ -147,7 +147,7 @@ function createWorker(run, power = false) {
       wiper: board.wiper,
       mcpOhms: board.mcpOhms,
       adc: [0, 1].map((i) => Number($("adc" + i).value)),
-      signals: { PB4: Number($("sig-PB4").value), PA15: Number($("sig-PA15").value) },
+      signals: { PB4: Number($("sig-PB4-value").value), PA15: Number($("sig-PA15-value").value) },
       run,
     },
     [copy],
@@ -187,8 +187,11 @@ function render(data) {
     el.classList.toggle("active", h !== null);
   });
   renderOutputs(data);
-  for (const c of data.captures)
-    $("route-" + c.pin).textContent = c.source ? "→ " + c.source + " 输入捕获" : "未接入定时器（引脚未配置为定时器复用）";
+  for (const c of data.captures) {
+    const el = $("route-" + c.pin);
+    el.textContent = c.source ? "→ " + c.source + " 输入捕获" : "未接入定时器";
+    el.title = c.source ? "" : "该引脚当前没有配置成定时器的复用功能";
+  }
   $("mcp").textContent =
     "N=" + data.wiper + " · " + (data.mcp.ohms / 1000).toFixed(1) + " kΩ · " + data.mcp.volts.toFixed(2) + " V";
   board.wiper = data.wiper;
@@ -413,11 +416,23 @@ for (let i = 0; i < 2; i++)
     $("adc" + i + "-value").innerHTML = value.toFixed(2) + " <small>V</small>";
     post({ type: "analog", index: i, value });
   };
+// 脉冲频率：拖动滑块，或在数字框中输入精确值（回车或离开输入框生效）。
 document.querySelectorAll(".signal").forEach((el) => {
+  const box = $(el.id + "-value"),
+    min = Number(el.min),
+    max = Number(el.max);
   el.oninput = () => {
-    const value = Number(el.value);
-    $(el.id + "-value").innerHTML = value.toLocaleString() + " <small>Hz</small>";
+    box.value = el.value;
+    post({ type: "signal", pin: el.dataset.pin, value: Number(el.value) });
+  };
+  box.onchange = () => {
+    const value = Math.round(Math.min(max, Math.max(min, Number(box.value) || min)));
+    box.value = value;
+    el.value = value;
     post({ type: "signal", pin: el.dataset.pin, value });
+  };
+  box.onkeydown = (e) => {
+    if (e.key === "Enter") box.blur();
   };
 });
 $("serial-form").onsubmit = (e) => {

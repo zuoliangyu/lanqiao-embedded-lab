@@ -189,12 +189,32 @@
           </div>
           <div class="slider-label">
             <label for="sig-PB4">R39 <small>PB4 <span class="route" id="route-PB4">未接入定时器</span></small></label
-            ><output id="sig-PB4-value">1,000 <small>Hz</small></output>
+            ><span class="num"
+              ><input
+                id="sig-PB4-value"
+                class="num-input"
+                type="number"
+                min="600"
+                max="32000"
+                step="1"
+                value="1000"
+                aria-label="R39 频率（Hz），回车生效" /><small>Hz</small></span
+            >
           </div>
           <input id="sig-PB4" data-pin="PB4" class="signal" type="range" min="600" max="32000" step="10" value="1000" />
           <div class="slider-label">
             <label for="sig-PA15">R40 <small>PA15 <span class="route" id="route-PA15">未接入定时器</span></small></label
-            ><output id="sig-PA15-value">1,000 <small>Hz</small></output>
+            ><span class="num"
+              ><input
+                id="sig-PA15-value"
+                class="num-input"
+                type="number"
+                min="600"
+                max="32000"
+                step="1"
+                value="1000"
+                aria-label="R40 频率（Hz），回车生效" /><small>Hz</small></span
+            >
           </div>
           <input id="sig-PA15" data-pin="PA15" class="signal" type="range" min="600" max="32000" step="10" value="1000" />
         </section>
