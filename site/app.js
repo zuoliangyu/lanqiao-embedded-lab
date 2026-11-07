@@ -14,7 +14,7 @@ let worker,
 const board = {
   eeprom: loadEEPROM(),
   wiper: 0x3f,
-  timing: localStorage.getItem(STORE + "timing") || "fast",
+  timing: localStorage.getItem(STORE + "timing") || "accurate",
   mcpOhms: Number(localStorage.getItem(STORE + "mcp")) || 100000,
 };
 const latched = new Set(),
@@ -164,7 +164,12 @@ function render(data) {
     ? "实际 " + data.rate.toFixed(2) + "×"
     : (data.perMs / 1000).toFixed(0) + "k 指令/ms";
   $("rate").title =
-    "每仿真毫秒 " + data.perMs.toLocaleString() + " 条指令；HCLK " + (data.hclk / 1e6).toFixed(0) + " MHz";
+    "每仿真毫秒最多 " +
+    data.perMs.toLocaleString() +
+    " 条指令；HCLK " +
+    (data.hclk / 1e6).toFixed(0) +
+    " MHz" +
+    (data.idle ? "；固件空等 1 ms tick 时自动跳到下一毫秒" : "");
   if (data.frame) ctx.putImageData(new ImageData(data.frame, 320, 240), 0, 0);
   document.querySelectorAll(".led").forEach((led, i) => {
     const on = !!(data.leds & (1 << i));
@@ -365,7 +370,8 @@ $("trend-pin").onchange = () => drawTrend(lastMs);
 function key(index, down) {
   if (!loaded) return;
   document.querySelector('[data-key="' + index + '"]').classList.toggle("pressed", down);
-  post({ type: "key", index, down });
+  // 绝对时间戳：页面与 Worker 的 performance.now() 零点不同，用 timeOrigin 对齐。
+  post({ type: "key", index, down, t: performance.timeOrigin + performance.now() });
 }
 // Shift + 点击或右键：锁定按下，再点一次松开，便于鼠标做组合键。
 function toggleLatch(el) {

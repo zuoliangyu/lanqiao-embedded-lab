@@ -24,9 +24,11 @@
       this.instructions = 0;
       this.leds = 0;
       this.keys = [false, false, false, false];
-      this.keyReads = [0, 0, 0, 0];
+      this.keyReads = [3, 3, 3, 3];
       this.keyReadMs = [-1, -1, -1, -1];
-      this.keyRelease = [false, false, false, false];
+      this.keyQueue = [[], [], [], []];
+      this.keyChangedAt = [0, 0, 0, 0];
+      this.keyLastRead = [-1, -1, -1, -1];
       this.keyDownAt = [null, null, null, null];
       this.lastHold = [0, 0, 0, 0];
       this.adc = [1.65, 1.65];
@@ -54,6 +56,12 @@
       this.extiLevels = -1;
       this.isrUsed = 0;
       this.budget = 0;
+      // 空闲跳过：只在精确时序下启用。tickAddrs 由前几次 SysTick 中断学习得到。
+      this.mmio = 0;
+      this.tickReads = 0;
+      this.tickAddrs = [];
+      this.tickLearn = [];
+      this.idleMs = 0;
       this.serviceDepth = -1;
       this.costs = new Map();
       this.flash = new Uint8Array(0x20000);
@@ -162,9 +170,11 @@
         this.e.hook_add(
           uc.HOOK_BLOCK,
           (_, address, size) => {
-            this.budget -= this.cost(Number(address), size);
+            const n = this.cost(Number(address), size);
+            this.budget -= n;
             if (this.budget <= 0) this.stop();
             else if (this.guard) this.guardBlock(Number(address));
+            if (this.idleWatch && this.serviceDepth < 0) this.idleCheck(n);
           },
           null,
           1,
@@ -401,6 +411,7 @@
     }
     // ---- 外设寄存器读 ----
     readPeripheral(address, size) {
+      this.mmio++;
       const a = (address & ~3) >>> 0,
         offset = address & 3;
       let v = this.get(a);
@@ -442,6 +453,7 @@
     }
     // ---- 外设寄存器写 ----
     writePeripheral(address, value, size) {
+      this.mmio++;
       const a = (address & ~3) >>> 0;
       let v = value >>> 0;
       if (size < 4) {
@@ -541,26 +553,36 @@
       if (port === 0 && n === 15) return this.signalLevel("PA15");
       return null;
     }
-    // 松开短按时，等固件在 3 个不同的毫秒里读到按下电平再真正松开：
-    // 快速时序下整屏刷新较慢，协作式调度可能整段错过一次 100 ms 的点按。
-    setKey(i, down) {
-      if (down) {
-        if (!this.keys[i]) this.keyDownAt[i] = this.ms;
-        this.keys[i] = true;
-        this.keyRelease[i] = false;
-        this.keyReads[i] = 0;
-        this.keyReadMs[i] = -1;
-      } else if (this.keyReads[i] >= 3) this.releaseKey(i);
-      else this.keyRelease[i] = true;
+    // 按键事件按仿真时刻生效：at 为事件应当生效的仿真毫秒（由 worker 根据页面时间戳换算），
+    // 同一按键的事件按顺序执行，不会落到过去。
+    // 保底：固件仍在扫键时，每个电平至少被固件在 3 个不同毫秒里读到才切换，极快的点击也不会漏掉。
+    // 固件从没读过这个按键（不用按键或用其他方式），或已等了 3 s 仍未读满，就不再等待，避免按键卡住。
+    setKey(i, down, at = this.ms) {
+      const q = this.keyQueue[i],
+        tail = q.length ? q[q.length - 1] : null;
+      if ((tail ? tail.down : this.keys[i]) === down || q.length >= 16) return;
+      q.push({ down, at: Math.max(at, this.ms, tail ? tail.at : 0) });
+      this.applyKey(i);
     }
-    releaseKey(i) {
-      if (this.keys[i] && this.keyDownAt[i] !== null) this.lastHold[i] = this.ms - this.keyDownAt[i];
-      this.keys[i] = false;
-      this.keyRelease[i] = false;
-      this.keyDownAt[i] = null;
+    applyKey(i) {
+      const q = this.keyQueue[i];
+      if (!q.length || q[0].at > this.ms) return;
+      const read = this.keyReads[i] >= 3 || this.keyLastRead[i] < 0 || this.ms - this.keyChangedAt[i] >= 3000;
+      if (!read) return;
+      const { down } = q.shift();
+      this.keys[i] = down;
+      this.keyReads[i] = 0;
+      this.keyReadMs[i] = -1;
+      this.keyChangedAt[i] = this.ms;
+      if (down) this.keyDownAt[i] = this.ms;
+      else if (this.keyDownAt[i] !== null) {
+        this.lastHold[i] = this.ms - this.keyDownAt[i];
+        this.keyDownAt[i] = null;
+      }
     }
     keyRead(i) {
-      if (this.keys[i] && this.keyReadMs[i] !== this.ms) {
+      this.keyLastRead[i] = this.ms;
+      if (this.keyReadMs[i] !== this.ms) {
         this.keyReadMs[i] = this.ms;
         this.keyReads[i]++;
       }
@@ -892,9 +914,57 @@
       if (this.serviceDepth >= 0 && this.frames.length <= this.serviceDepth)
         this.stop();
     }
+    // 主程序连续约 400 条指令只反复读 tick 变量、不访问外设：判定为空等下一个 1 ms，跳过本毫秒剩余指令。
+    // 软件延时循环（不读 tick）与外设轮询（有外设访问）都不会被跳过。
+    idleCheck(n) {
+      this.slice += n;
+      if (this.slice < 400) return;
+      if (this.mmio === this.mmioMark && this.tickReads - this.tickMark >= 4) {
+        this.idled = true;
+        this.stop();
+      }
+      this.slice = 0;
+      this.mmioMark = this.mmio;
+      this.tickMark = this.tickReads;
+    }
+    // 记录 SysTick 中断里写入 SRAM 的 32 位值，连续 3 次等差递增的就是 tick 计数变量（如 HAL 的 uwTick）。
+    learnTick(number) {
+      if (number !== 15 || this.tickLearn.length >= 3) return null;
+      const writes = new Map();
+      this.tickLearn.push(writes);
+      return this.e.hook_add(
+        this.uc.HOOK_MEM_WRITE,
+        (_, type, address, size, value) => {
+          if (size === 4) writes.set(Number(address), Number(value) >>> 0);
+        },
+        null,
+        0x20000000,
+        0x20007fff,
+      );
+    }
+    findTick() {
+      const [a, b, c] = this.tickLearn;
+      for (const [addr, v1] of a) {
+        const v2 = b.get(addr),
+          v3 = c.get(addr);
+        if (v2 === undefined || v3 === undefined) continue;
+        const d = v2 - v1;
+        if (d > 0 && d <= 1000 && v3 - v2 === d && this.tickAddrs.length < 4) this.tickAddrs.push(addr);
+      }
+      for (const addr of this.tickAddrs)
+        this.hooks.push(
+          this.e.hook_add(this.uc.HOOK_MEM_READ, () => this.tickReads++, null, addr, addr + 3),
+        );
+    }
+    get idleWatch() {
+      return this.timing === "accurate" && this.tickAddrs.length > 0;
+    }
     run(budget) {
       this.budget = budget;
       this.halt = false;
+      this.slice = 0;
+      this.mmioMark = this.mmio;
+      this.tickMark = this.tickReads;
       while (!this.halt && !this.fault) {
         const page = this.guardPage(this.pc);
         try {
@@ -916,10 +986,15 @@
       const depth = this.serviceDepth;
       this.serviceDepth = this.frames.length;
       this.enterException(number);
+      const learn = this.learnTick(number);
       try {
         this.isrUsed += this.run(this.perMs());
       } finally {
         this.serviceDepth = depth;
+        if (learn !== null) {
+          this.e.hook_del(learn);
+          if (this.tickLearn.length === 3) this.findTick();
+        }
       }
     }
     // ---- DMA ----
@@ -985,7 +1060,7 @@
     // ---- 1 ms 节拍 ----
     tick() {
       this.ms++;
-      for (let i = 0; i < 4; i++) if (this.keyRelease[i] && this.keyReads[i] >= 3) this.releaseKey(i);
+      for (let i = 0; i < 4; i++) this.applyKey(i);
       const ctrl = this.get(0xe000e010);
       if (ctrl & 1) {
         const period = (this.get(0xe000e014) & 0xffffff) + 1;
@@ -1040,6 +1115,10 @@
         const per = this.perMs();
         this.run(Math.max(per >> 3, per - this.isrUsed));
         this.isrUsed = 0;
+        if (this.idled) {
+          this.idled = false;
+          this.idleMs++;
+        }
         if (this.resetRequested) return;
         this.tick();
       }

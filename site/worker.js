@@ -4,6 +4,9 @@ let machine,
   running = false,
   speed = 1,
   timer,
+  generation = 0,
+  batches = [],
+  keyLag = [1, 1, 1, 1],
   lastWall = 0,
   target = 0,
   lastFrame = 0,
@@ -15,6 +18,7 @@ let machine,
 const PINS = ["PA1", "PA2", "PA6", "PA7"];
 const ready = MUnicorn();
 async function create() {
+  batches = [];
   if (machine) machine.close();
   const c = config;
   machine = new Machine(await ready, c.bytes, {
@@ -71,6 +75,7 @@ function snapshot(force = false) {
       lastHold: machine.lastHold,
       timing: machine.timing,
       perMs: machine.perMs(),
+      idle: !!machine.idleWatch,
       hclk: machine.hclk(),
       rate: running ? rate.value : 0,
       history,
@@ -87,9 +92,60 @@ function snapshot(force = false) {
     postMessage(data, [data.frame.buffer]);
   } else postMessage(data);
 }
+// 追不上实时（仿真时间落后）时用 MessageChannel 立即继续：setTimeout(0) 连续嵌套会被浏览器
+// 限制为至少 4 ms，白白浪费约两成算力。已追上时才用 setTimeout 等待，避免空转。
+const channel = new MessageChannel();
+channel.port1.onmessage = ({ data }) => {
+  if (data === generation) loop();
+};
+function schedule() {
+  const gen = generation;
+  if (machine.ms < target) channel.port2.postMessage(gen);
+  else
+    timer = setTimeout(() => {
+      if (gen === generation) loop();
+    }, 4);
+}
+function halt() {
+  running = false;
+  generation++;
+  clearTimeout(timer);
+}
+// 每批仿真的实际时间与仿真时间：[实际开始, 实际结束, 仿真开始, 仿真结束]，实际时间为绝对毫秒。
+const now = () => performance.timeOrigin + performance.now();
+function record(w0, m0) {
+  batches.push([w0, now(), m0, machine.ms]);
+  if (batches.length > 64) batches.shift();
+}
+// 把页面的绝对时间戳换算成仿真毫秒：落在某批内按比例插值，落在两批之间取前一批的结束时刻。
+function simAt(t) {
+  let at = machine.ms;
+  for (let k = batches.length - 1; k >= 0; k--) {
+    const [w0, w1, m0, m1] = batches[k];
+    if (t >= w1) {
+      at = m1;
+      break;
+    }
+    if (t >= w0) {
+      at = m0 + ((t - w0) / Math.max(1e-6, w1 - w0)) * (m1 - m0);
+      break;
+    }
+    at = m0;
+  }
+  return at;
+}
+// 事件在发生时刻再晚一批生效：消息只能在两批之间处理，统一延后一批才不会落到过去，
+// 按下与松开用同一个延迟，按住时长等于这段时间里仿真实际走过的时间。
+function keyEvent(i, down, t) {
+  if (t === undefined || !running) return machine.setKey(i, down);
+  if (down) keyLag[i] = Math.max(1, batches.length ? batches[batches.length - 1][3] - batches[batches.length - 1][2] : 1);
+  machine.setKey(i, down, Math.round(simAt(t) + keyLag[i]));
+}
 async function loop() {
   if (!running) return;
-  const start = performance.now();
+  const start = performance.now(),
+    w0 = now(),
+    m0 = machine.ms;
   target = Math.min(machine.ms + 80, target + (start - lastWall) * speed);
   lastWall = start;
   try {
@@ -106,6 +162,7 @@ async function loop() {
         break;
       }
     }
+    record(w0, m0);
     if (start - lastFrame > 50) {
       snapshot();
       lastFrame = start;
@@ -115,11 +172,13 @@ async function loop() {
     postMessage({ type: "error", message: String(err && err.message ? err.message : err), pc: machine.pc });
     snapshot(true);
   }
-  if (running) timer = setTimeout(loop, 0);
+  if (running) schedule();
 }
 function run() {
   if (!machine || running) return;
   running = true;
+  generation++;
+  batches = [];
   lastWall = performance.now();
   rate = { wall: 0, ms: machine.ms, value: 0 };
   target = machine.ms;
@@ -129,8 +188,7 @@ function run() {
 onmessage = async ({ data }) => {
   try {
     if (data.type === "load") {
-      running = false;
-      clearTimeout(timer);
+      halt();
       config = data;
       await create();
       postMessage({ type: "loaded", size: machine.firmware.size, format: machine.firmware.format, guards: machine.runs.length });
@@ -138,11 +196,10 @@ onmessage = async ({ data }) => {
       if (data.run) run();
     } else if (data.type === "run") run();
     else if (data.type === "pause") {
-      running = false;
-      clearTimeout(timer);
+      halt();
       snapshot();
     } else if (!machine) return;
-    else if (data.type === "key") machine.setKey(data.index, data.down); else if (data.type === "analog") {
+    else if (data.type === "key") keyEvent(data.index, data.down, data.t); else if (data.type === "analog") {
       machine.adc[data.index] = Math.min(3.3, Math.max(0, data.value));
       config.adc[data.index] = machine.adc[data.index];
     } else if (data.type === "signal" || data.type === "frequency") {

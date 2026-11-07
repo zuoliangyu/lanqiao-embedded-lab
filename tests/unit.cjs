@@ -5,7 +5,8 @@ const fs = require("node:fs"),
   assert = require("node:assert/strict");
 for (const f of ["elf", "lcd", "i2c", "timer"]) require("../site/" + f + ".js");
 const { Machine } = require("../site/machine.js");
-const hex = fs.readFileSync(path.join(__dirname, "fixtures/unit-firmware.hex"));
+const hex = fs.readFileSync(path.join(__dirname, "fixtures/unit-firmware.hex")),
+  idleHex = fs.readFileSync(path.join(__dirname, "fixtures/idle-firmware.hex"));
 const tests = [];
 const test = (name, fn) => tests.push([name, fn]);
 const GPIOA = 0x48000000,
@@ -350,6 +351,87 @@ test("时序模式与 LCD 翻转显示", (u) => {
   const flipped = lcd.rgba();
   assert.equal(at(flipped, 0, 239), 255, "SS+GS：旋转 180°");
   assert.equal(at(flipped, 319, 0), 0);
+});
+test("按键按时间戳生效：时长保持，快速连点不丢，不扫键的固件不卡住", (u) => {
+  const m = setup(u);
+  m.w(GPIOB, m.get(GPIOB) & ~3);
+  const level = () => (m.r(GPIOB + 0x10) & 1) === 0;
+  // 固件每 10 ms 扫键：按下在第 5 ms 生效、松开在第 85 ms 生效，按住正好 80 ms
+  m.r(GPIOB + 0x10);
+  const t0 = m.ms;
+  m.setKey(0, true, t0 + 5);
+  m.setKey(0, false, t0 + 85);
+  const seen = [];
+  for (let t = 1; t <= 120; t++) {
+    m.tick();
+    if (t % 10 === 0 || m.ms === t0 + 5 || m.ms === t0 + 85) seen.push([m.ms - t0, level()]);
+  }
+  assert.equal(m.lastHold[0], 80, "按住时长 80 ms");
+  assert.deepEqual(seen.find((x) => x[1]), [5, true], "第 5 ms 按下生效");
+  assert.deepEqual(seen.filter((x) => !x[1] && x[0] > 5)[0], [85, false], "第 85 ms 松开生效");
+  // 两次点击在 3 ms 内全部到达：每个电平保持到被扫描 3 次（10 ms 一次）
+  const t1 = m.ms,
+    flips = [];
+  m.setKey(0, true, t1 + 1);
+  m.setKey(0, false, t1 + 2);
+  m.setKey(0, true, t1 + 3);
+  m.setKey(0, false, t1 + 4);
+  let last = level();
+  for (let t = 1; t <= 200; t++) {
+    m.tick();
+    if (t % 10 === 0) {
+      const v = level();
+      if (v !== last) flips.push([m.ms - t1, v]);
+      last = v;
+    }
+  }
+  assert.deepEqual(
+    flips.map((x) => x[1]),
+    [true, false, true, false],
+    "两次按下与松开都被固件看到",
+  );
+  assert.deepEqual(
+    flips.slice(1).map((x, i) => x[0] - flips[i][0]),
+    [30, 30, 30],
+    "每个电平保持 3 次扫描",
+  );
+  // 事件不会落到过去
+  m.setKey(0, true, m.ms - 50);
+  assert.equal(m.keys[0], true, "过去的时间戳按当前时刻生效");
+  m.close();
+  // 从不读 B2 的固件：按键不等待，立即按时间戳切换
+  const n = setup(u);
+  n.setKey(1, true);
+  n.setKey(1, false, n.ms + 2);
+  for (let t = 0; t < 3; t++) n.tick();
+  assert.equal(n.keys[1], false, "不扫键的固件不会卡住");
+  assert.equal(n.lastHold[1], 2);
+  n.close();
+});
+test("精确时序空闲跳过：等 tick 时跳到下一毫秒，软件延时不跳过", (u) => {
+  const m = new Machine(u, idleHex, { timing: "accurate" });
+  m.step(50);
+  assert.deepEqual(m.tickAddrs, [0x20000100], "从 SysTick 中断学到 tick 变量");
+  const start = m.readWord(0x20000104),
+    used = m.instructions;
+  m.step(200);
+  assert(Math.abs(m.readWord(0x20000104) - start - 200) <= 1, "每个 tick 处理一次，时序不变");
+  assert(m.idleMs >= 195, "空闲毫秒被跳过 " + m.idleMs);
+  assert((m.instructions - used) / 200 < 2000, "每毫秒只执行约千条指令，而不是 16000 条");
+  const idle = m.idleMs;
+  m.writeMemory(0x20000108, 1);
+  m.step(1);
+  const c0 = m.readWord(0x2000010c),
+    i0 = m.instructions;
+  m.step(20);
+  assert.equal(m.idleMs, idle, "软件延时循环不读 tick，不被跳过");
+  assert((m.instructions - i0) / 20 > 15000, "软件延时每毫秒执行满 16000 条");
+  assert(m.readWord(0x2000010c) - c0 > 20 * 3000, "延时循环计数按全速增长");
+  m.close();
+  const fast = new Machine(u, idleHex);
+  fast.step(100);
+  assert.equal(fast.idleMs, 0, "快速时序不启用空闲跳过");
+  fast.close();
 });
 (async () => {
   const u = await require("../site/vendor/unicorn_arm.js")();
