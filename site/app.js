@@ -440,19 +440,6 @@ for (const d of [$("about"), $("help")])
   d.onclick = (e) => {
     if (e.target === d) d.close();
   };
-async function copyQQ(button, label) {
-  try {
-    await navigator.clipboard.writeText($("qq-group").textContent);
-    button.textContent = "已复制群号";
-  } catch {
-    $("about").showModal();
-    getSelection().selectAllChildren($("qq-group"));
-    button.textContent = "请按 Ctrl+C";
-  }
-  setTimeout(() => (button.textContent = label), 2000);
-}
-$("copy-qq").onclick = () => copyQQ($("copy-qq"), "复制群号");
-$("copy-qq-top").onclick = () => copyQQ($("copy-qq-top"), "QQ群 1019721429");
 if (location.protocol === "file:")
   showError(
     "请使用项目中的启动脚本，或把 site 目录部署到 GitHub Pages；浏览器不允许 file:// 页面启动仿真 Worker。",

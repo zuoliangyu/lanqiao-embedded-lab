@@ -190,8 +190,7 @@ input:focus-visible {
 .author > * + * {
   border-left: 1px solid var(--line);
 }
-.author a,
-.author-qq {
+.author a {
   color: var(--teal);
 }
 .author a:hover,
@@ -787,10 +786,6 @@ dialog.sheet h2 {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-#qq-group {
-  font: 16px Consolas, monospace;
-  letter-spacing: 0.5px;
 }
 
 /* ---- 笔记本宽度：顶栏保持一行 ---- */

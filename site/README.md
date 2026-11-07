@@ -123,7 +123,7 @@ npm run test:reference -- --p17 "17届省赛.axf" --p16 "16届省赛.axf" --p15 
 
 ## 作者
 
-左岚 · [哔哩哔哩](https://space.bilibili.com/27619688) · QQ 交流群 1019721429
+左岚 · [哔哩哔哩](https://space.bilibili.com/27619688)
 
 ## 许可
 
