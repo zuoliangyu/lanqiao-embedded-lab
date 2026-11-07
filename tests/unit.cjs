@@ -157,6 +157,38 @@ test("TIM2_CH1（PA15）捕获中断逐边沿响应，中断内浮点不破坏�
   assert.deepEqual(m.captures().find((c) => c.pin === "PA15").source, "TIM2_CH1");
   m.close();
 });
+test("R40 脉冲范围两端：600 Hz 与 32 kHz 捕获", (u) => {
+  for (const [hz, period] of [
+    [600, 1666],
+    [32000, 31],
+  ]) {
+    const m = setup(u),
+      tim = 0x40000000;
+    m.af(GPIOA, 15, 1);
+    m.w(tim + 0x28, 15);
+    m.w(tim + 0x2c, 0xffffffff);
+    m.w(tim + 0x18, 1);
+    m.w(tim + 0x20, 1);
+    m.w(tim + 0x0c, 2);
+    m.w(0xe000e100, 1 << 28);
+    m.w(tim, 1);
+    m.signals.PA15.hz = hz;
+    m.step(100);
+    assert.equal(m.readWord(0x20000004), period, hz + " Hz 的捕获周期");
+    // 第 100 ms 边界上的那个沿可能落在下一毫秒，允许差 1
+    assert(Math.abs(m.readWord(0x20000008) - hz / 10) <= 1, hz + " Hz 在 100 ms 内的中断次数 " + m.readWord(0x20000008));
+    m.close();
+  }
+});
+test("新建实例的内存已初始化（Flash 为 0xFF，SRAM 为 0）", (u) => {
+  let m = setup(u);
+  m.writeMemory(0x20000100, 0x12345678);
+  m.close();
+  m = setup(u);
+  assert.equal(m.readWord(0x20000100), 0);
+  assert.equal(m.readWord(0x0801fff0), 0xffffffff);
+  m.close();
+});
 test("TIM8_CH1（PA15）+ DMA 循环捕获，复位从模式", (u) => {
   const m = setup(u),
     tim = 0x40013400,

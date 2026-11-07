@@ -66,6 +66,21 @@
         [0xe000e000, 0x2000],
       ])
         this.e.mem_map(a, s, uc.PROT_ALL);
+      // Unicorn.js 在同一进程里新建实例时会复用旧实例未清零的内存：Flash 置为擦除态，其余清零。
+      for (const [a, s] of [
+        [0x08000000, 0x20000],
+        [0, 0x20000],
+      ])
+        this.e.mem_write(a, new Uint8Array(s).fill(0xff));
+      for (const [a, s] of [
+        [0x20000000, 0x8000],
+        [0x10000000, 0x3000],
+        [0x40000000, 0x30000],
+        [0x48000000, 0x2000],
+        [0x50000000, 0x1000],
+        [0xe000e000, 0x2000],
+      ])
+        this.e.mem_write(a, new Uint8Array(s));
       this.firmware = root.parseFirmware(firmware);
       for (const seg of this.firmware.segments) {
         this.e.mem_write(seg.address, seg.data);

@@ -146,7 +146,8 @@ onmessage = async ({ data }) => {
       config.adc[data.index] = machine.adc[data.index];
     } else if (data.type === "signal" || data.type === "frequency") {
       const pin = data.pin || "PB4",
-        hz = Math.min(100000, Math.max(0, data.value));
+        // R39/R40 调节的 TLC555 输出范围约 600–32000 Hz
+        hz = Math.min(32000, Math.max(600, data.value));
       machine.signals[pin].hz = hz;
       config.signals[pin] = hz;
     } else if (data.type === "uart") {
