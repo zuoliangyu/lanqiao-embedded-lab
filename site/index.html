@@ -26,24 +26,30 @@
         ><button id="power" disabled title="断电重启：EEPROM 保持，MCP4017 回到上电值">断电重启</button>
       </div>
       <div class="run-settings">
-        <label for="speed">倍率</label
-        ><select id="speed">
+        <label for="speed" class="lbl">倍率</label
+        ><select id="speed" title="运行倍率">
           <option value="0.25">0.25×</option>
           <option value="1" selected>1×</option>
           <option value="4">4×</option></select
-        ><label for="timing">时序</label
+        ><label for="timing" class="lbl">时序</label
         ><select
           id="timing"
           title="快速：每毫秒 8000 条指令；精确：每毫秒执行 HCLK/1000 条，接近实物但更慢"
         >
           <option value="fast">快速</option>
-          <option value="accurate">精确（按主频）</option></select
+          <option value="accurate">精确</option></select
         ><span id="rate" class="rate" title="仿真时间 / 实际时间">—</span
         ><span id="status" class="status">等待程序</span>
       </div>
       <div class="header-actions">
-        <button class="text-button" id="about-button">关于作者</button
-        ><button class="text-button" id="help-button">使用说明</button>
+        <div class="author" aria-label="关于作者">
+          <button class="author-name" id="about-button" title="关于作者">
+            <i aria-hidden="true">左</i><span class="lbl">作者 </span>左岚</button
+          ><a href="https://space.bilibili.com/27619688" target="_blank" rel="noopener" title="哔哩哔哩主页"
+            >B站 ↗</a
+          ><button class="author-qq" id="copy-qq-top" title="点击复制群号">QQ群 1019721429</button>
+        </div>
+        <button class="text-button" id="help-button">使用说明</button>
       </div>
     </header>
     <div id="alert" class="alert" role="alert" hidden title="点击关闭"></div>

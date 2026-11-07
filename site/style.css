@@ -169,6 +169,53 @@ input:focus-visible {
   display: none;
 }
 
+.author {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f6faf6;
+  font-size: 12px;
+}
+.author > * {
+  border: none;
+  background: none;
+  border-radius: 0;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.author > * + * {
+  border-left: 1px solid var(--line);
+}
+.author a,
+.author-qq {
+  color: var(--teal);
+}
+.author a:hover,
+.author > button:hover:not(:disabled) {
+  background: #e7f1eb;
+}
+.author-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.author-name i {
+  font-style: normal;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--dark);
+  color: var(--mint);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+}
+
 /* ---- 三列布局：1080p 下 100% 缩放一屏看全 ---- */
 .layout {
   display: grid;
@@ -744,6 +791,26 @@ dialog.sheet h2 {
 #qq-group {
   font: 16px Consolas, monospace;
   letter-spacing: 0.5px;
+}
+
+/* ---- 笔记本宽度：顶栏保持一行 ---- */
+@media (max-width: 1500px) {
+  .topbar {
+    gap: 8px 12px;
+  }
+  .lbl {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .rate {
+    min-width: 0;
+  }
+  .controls button {
+    padding: 7px 10px;
+  }
 }
 
 /* ---- 较矮窗口（笔记本、投影）：压缩间距，尽量一屏放下 ---- */
