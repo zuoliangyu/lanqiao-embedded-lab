@@ -66,13 +66,18 @@
       this.regs[0x20] = x;
       this.regs[0x21] = y;
     }
+    // R01 的 SS 位和 R60 的 GS 位改变面板扫描方向；13 届国赛的“翻转显示”同时切换两者。
     rgba() {
       const data = new Uint8ClampedArray(320 * 240 * 4),
-        on = !!(this.regs[7] & 3);
+        on = !!(this.regs[7] & 3),
+        ss = !!(this.regs[1] & 0x100),
+        gs = !!(this.regs[0x60] & 0x8000);
       for (let y = 0; y < 320; y++)
         for (let x = 0; x < 240; x++) {
           const color = on ? this.pixels[y * 240 + x] : 0,
-            p = (x * 320 + (319 - y)) * 4;
+            px = ss ? 239 - x : x,
+            py = gs ? 319 - y : y,
+            p = (px * 320 + (319 - py)) * 4;
           data[p] = (((color >> 11) & 31) * 255) / 31;
           data[p + 1] = (((color >> 5) & 63) * 255) / 63;
           data[p + 2] = ((color & 31) * 255) / 31;

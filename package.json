@@ -6,7 +6,9 @@
   "license": "GPL-2.0-only",
   "scripts": {
     "start": "node serve.cjs",
-    "check": "node --check serve.cjs && node --check tests/smoke.cjs && node --check site/app.js && node --check site/elf.js && node --check site/lcd.js && node --check site/machine.js && node --check site/worker.js",
-    "test": "node tests/smoke.cjs"
+    "check": "node --check serve.cjs && node --check tests/smoke.cjs && node --check tests/unit.cjs && node --check tests/reference.cjs && node --check site/app.js && node --check site/elf.js && node --check site/lcd.js && node --check site/i2c.js && node --check site/timer.js && node --check site/machine.js && node --check site/worker.js",
+    "test": "node tests/unit.cjs",
+    "test:smoke": "node tests/smoke.cjs",
+    "test:reference": "node tests/reference.cjs"
   }
 }

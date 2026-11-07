@@ -8,3 +8,4 @@ test-results/
 *.bin
 *.zip
 *.rgba
+!tests/fixtures/*.hex

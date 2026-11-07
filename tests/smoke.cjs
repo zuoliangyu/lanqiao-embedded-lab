@@ -5,6 +5,8 @@ const fs = require("node:fs"),
   crypto = require("node:crypto");
 require("../site/elf.js");
 require("../site/lcd.js");
+require("../site/i2c.js");
+require("../site/timer.js");
 const { Machine } = require("../site/machine.js");
 function symbols(bytes) {
   const v = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength),

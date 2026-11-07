@@ -4,7 +4,7 @@
 
 载入 STM32G431RBT6 的 ELF / AXF，在浏览器中执行 ARM 指令，并通过 CT117E-M4 V1.2 的 GPIO 总线驱动 LCD、按键和 LED。计算在浏览器 Web Worker 内进行，GitHub Pages 仅托管静态文件。无需开发板、后端服务或服务器租赁，固件文件不上传。
 
-这是针对已提供 BSP 与 STM32_Xifeng 模板验证的实验性原型，不保证所有 STM32G431 固件兼容，也不提供周期精确或电气级仿真。
+覆盖竞赛板（不含扩展板）上历届真题常用的外设，已用 BSP、模板和第 12–17 届参考工程验证。它是实验性原型，不保证所有 STM32G431 固件兼容，也不提供周期精确或电气级仿真。
 
 ## 本机使用
 
@@ -14,7 +14,7 @@
 npm start        # 等同于 node serve.cjs，端口可用 PORT 环境变量修改
 ```
 
-打开 `http://127.0.0.1:8127`，选择 ELF / AXF，点击“烧录并运行”。可暂停、继续、复位。浏览器支持 WebAssembly 和 BigInt 即可；已在本机 Chromium 验证。不要直接双击 `site/index.html`，`file://` 不允许本项目的 Worker 加载。
+打开 `http://127.0.0.1:8127`，选择 ELF / AXF / HEX，点击“烧录并运行”。可暂停、继续、复位（保留 EEPROM 与 MCP4017）或断电重启（保留 EEPROM）。浏览器支持 WebAssembly 和 BigInt 即可；已在本机 Chromium 验证。不要直接双击 `site/index.html`，`file://` 不允许本项目的 Worker 加载。
 
 LCD 左侧提供 `Line0`～`Line9` 辅助行号，顶部提供 `0`～`19` 列号，按 BSP 默认 16×24 像素字体对齐。行列号位于画面外，不写入 LCD 像素；自定义字体或按像素坐标绘图时，仅作为位置参考。
 
@@ -32,65 +32,85 @@ LCD 左侧提供 `Line0`～`Line9` 辅助行号，顶部提供 `0`～`19` 列号
 
 项目已初始化为本地 git 仓库，尚未创建远程仓库或执行公开发布。
 
+## 时序模式
+
+工具栏可切换两种时序，选择保存在浏览器中：
+
+| 模式 | 每仿真毫秒执行的指令 | 特点 |
+| --- | --- | --- |
+| 快速（默认） | 8000 条 | 页面流畅；CPU 密集的代码比 80 MHz 实物慢约 10 倍，例如整屏清屏约 0.36 s 仿真时间（实物约 0.04 s）。协作式调度的程序在刷新 LCD 期间扫键很少，单击可能要等数秒仿真时间才响应 |
+| 精确（按主频） | HCLK / 1000 条（80 MHz 时 80000 条） | 指令数与实物一致，可用于判断“刷新 0.1 s”“按键响应 ≤ 0.1 s”等要求；浏览器中运行明显慢于实时 |
+
+两种模式都不模拟流水线、总线等待或中断延迟。工具栏右侧显示“仿真时间 / 实际时间”的实际倍率。
+
+点按按键时，若固件尚未在 3 个不同毫秒里读到按下电平，松开会延后到读到为止，避免快速模式下整段错过一次短按。按住时长按仿真时间显示在按键下方。
+
 ## 已验证固件
 
 使用用户本机已有二进制验证，没有改动或重新编译原工程，也没有把它们打包到网页中。
 
 | 固件 | 结果 |
 | --- | --- |
-| BSP `HAL_06_LCD.axf` | 原始 ARM 指令产生 84,096 次像素写入；正确显示 `Hello,world.`；非黑色像素为 566 个白色像素 |
-| 模板 `STM32_Xifeng.elf` | 启动、SysTick、LCD 清黑完成；B1 按下/释放使固件 `key_val` 变成 1/0 |
-| 同一模板的 ADC / DMA | 输入 0.825 V 与 2.475 V，DMA 原始采样分别为 1024 / 3071；固件浮点计算结果随输入改变 |
-| 同一模板的捕获 / PWM | 捕获输入从 1,000 Hz 改为 2,000 Hz，固件结果相应改变；PWM 为约 470.588 Hz、5% |
-| 同一模板的 USART1 | 页面输入经 DMA 与 IDLE 中断进入固件，固件回显 `ringbuffer data: ct117e-test` |
+| BSP `HAL_06_LCD.axf` / `LL_06_LCD.axf` | 正确显示 `Hello,world.`；84,096 次像素写入，566 个白色像素 |
+| 模板 `STM32_Xifeng.elf` | 启动、SysTick、清屏；B1 按下/释放；ADC DMA；TIM3 捕获 1,000 → 2,000 Hz；USART1 DMA+IDLE 回显 |
+| 第 17 届省赛参考 | R39→PB4 测频 4,000 Hz，瞬时流量 20.0 L/min；PA1 输出 10 kHz / 5%；手动模式 TarD 改为 10% 后 2.5 s 时为 8%，最终 10%；f > 8 kHz 点亮 LD1 |
+| 第 16 届省赛参考 | R37/R38 满量程时 PA7（TIM17）约 1,900 Hz / 79%（固件按 4095/4096 取整），归零时 1,000 Hz / 10%；PA15（TIM2_CH1）测频 1,500 Hz |
+| 第 15 届省赛参考 | PA15（TIM8）1,234 Hz、PB4（TIM3）15 kHz 双通道测频；15 kHz 读成 15,151 Hz 是 1 MHz 计数下周期取整，与实物一致 |
+| 第 13 届国赛参考 | 参数经 PB6/PB7 软件 I²C 写入 M24C02 地址 0/4，重新上电读回；串口 `#` 切换 R01/R60，LCD 旋转 180° |
+| 第 12–17 届其他参考工程（共 25 个） | 均运行 2 s 无异常，无未支持外设访问 |
 
-当前模板源码中的 `lcd_proc()` 为空，启动仅清黑。该 ELF 保持黑屏是程序的实际行为；可使用 BSP 的 HAL LCD 示例确认显示链路。
-
-有多个不同的 AXF/ELF 构建产物时，它们不一定对应当前源码。本次模板验收使用 `MDK-ARM/build/STM32_Xifeng/STM32_Xifeng.elf`。
+第 13 届省赛参考工程调用了模板里的 `pwm_set_frequency`，该函数把时钟写死为 72 MHz 且未计入 PSC，实物输出约 6.5 Hz；仿真显示的 7 Hz 是固件真实行为。第 15 届国赛参考工程的 `lcd_proc()` 为空，黑屏也是固件本身的行为。
 
 ## 仿真范围
 
 | 部分 | 当前实现与边界 |
 | --- | --- |
-| CPU / ELF | 复用 Unicorn.js ARM WebAssembly；执行 ELF / AXF 中的代码，支持 Thumb、模板涉及的浮点运算；入口向量表必须位于 `0x08000000` |
-| 内存 | 128 KB Flash、32 KB SRAM 地址窗口、CCM 独立窗口；尚未完整建模 SRAM/CCM 别名、bit-band、Flash 擦写与保护 |
-| 启动 | RCC、PWR、Flash 等 HAL 初始化需要的基本寄存器行为；晶振和 PLL 就绪采用立即响应 |
-| 中断 | 基础 SysTick 和模板使用的 DMA1 / USART1 中断；不支持完整中断优先级、嵌套、PSP 上下文切换、FPU 扩展异常栈、RTOS 与所有异常语义 |
-| LCD | GPIOC 16 位并口，PB9 CS、PB8 RS、PB5 WR、PA8 RD；932X 的寄存器/GRAM、窗口、游标自增和 RGB565；默认 9325 ID。UC8230 为实验选项，未列入本次验收 |
-| 按键 / LED | B1–B4 对应 PB0/PB1/PB2/PA0，低电平有效；LED 根据 PC8–PC15 和 PD2 的 74LS573 透明/锁存行为更新 |
-| ADC / DMA | 对应模板 ADC1/ADC2 的模拟输入、DMA1 循环传输和半满/完成标志；采样频率、转换延时及 DMAMUX 路由约束未完整建模 |
-| TIM | 模板的 TIM3 CH1 输入捕获及 DMA；TIM1 CH1 / TIM2 CH2 的 PWM 参数读出。时钟计算覆盖本次 HSI/PLL、总线不分频配置，不保证其他分频配置 |
-| RTC | 基础 BCD 时间寄存器和逻辑时间推进；日期跨日、闹钟、校准等未实现 |
-| USART1 | 轮询发送/接收、模板使用的 RX DMA/IDLE 中断；无电气波特率时序模拟 |
-| 未实现 | USB、SPI Flash、I²C EEPROM / MCP4017、CAN、其他 ADC/TIM 通道及复杂芯片功能 |
+| CPU / 固件 | Unicorn.js ARM WebAssembly；载入 ELF / AXF / Intel HEX；入口向量表必须位于 `0x08000000`。中断进出时保存 S0–S15 与 FPSCR |
+| 中断 | NVIC 使能、挂起、优先级与抢占分组（AIRCR.PRIGROUP），可嵌套；SysTick、PendSV、DMA1、ADC1_2、TIM1/2/3/4/6/7/8/15/16/17、USART1、EXTI0–15、RTC 闹钟；`NVIC_SystemReset` 会重新上电并保留 EEPROM |
+| 时钟 | HSI/HSE(24 MHz)/PLL、AHB 与 APB1/APB2 分频；APB 分频不为 1 时定时器时钟加倍 |
+| LCD | GPIOC 16 位并口，PB9 CS、PB8 RS、PB5 WR、PA8 RD；932X 寄存器/GRAM、窗口、自增和 RGB565；R01 SS 与 R60 GS 翻转显示。UC8230 为实验选项 |
+| 按键 / LED / EXTI | B1–B4 低电平有效，可组合；EXTI 上下沿触发与 SYSCFG 端口选择；LED 按 74LS573 透明/锁存更新 |
+| ADC | ADC1/ADC2 按 SQR 序列逐通道转换：PB12（IN11）、PB15（ADC2 IN15）、PB14（IN5，MCP4017 分压）；EOC/EOS 标志，DMA、轮询、中断读取；分辨率与左对齐 |
+| 定时器 | 计数、预分频、自动重装、更新事件与 URS/UDIS、重复计数；输入捕获（直接/交叉输入、极性、预分频、溢出标志）、复位从模式（PWM 输入测频）、捕获 DMA 与逐边沿中断；PWM1/PWM2/强制电平/翻转模式、互补输出、MOE。按 GPIO 复用识别 PA1/PA2/PA6/PA7/PA15/PB4/PC0 上的通道 |
+| 脉冲源 | R39→PB4、R40→PA15 两路 TLC555 方波，0–20 kHz，占空比 50% |
+| I²C 器件 | 按 SCL/SDA 电平识别起止条件与 ACK：M24C02（0xA0，256 字节，16 字节页回卷，写后约 5 ms 不应答）；MCP4017（0x5E，7 位滑片，阻值型号可选，与 R17 分压到 PB14）。EEPROM 内容保存在浏览器本地 |
+| USART1 | 轮询、RXNE/IDLE/TXE/TC 中断、RX DMA + IDLE、TX DMA；按 BRR 与时钟源计算波特率，偏离 9600 超过 3% 时界面提示；无电气时序 |
+| RTC | LSE/LSI/HSE/32 分频与 PREDIV 决定秒长（LSI 默认分频约 1.024 s）；时间、日期（闰年、星期）、亚秒、闹钟 A |
+| 未实现 | 扩展板、USB、SPI Flash、CAN、看门狗、低功耗、DAC、比较器、定时器编码器与中心对齐计数细节 |
 
-外围寄存器采用有限行为模型，部分寄存器仅保存写入值。访问未支持的外设区域会在界面提示，但已识别区域内尚未实现的寄存器行为无法全部自动识别。“没有未支持区域”不等于完全兼容。
+外围寄存器采用有限行为模型，访问未支持的外设区域会在界面提示，但已识别区域内尚未实现的寄存器行为无法全部自动识别。
 
-逻辑时间由执行批次推进：一个主循环执行批次最多 8,000 条指令，推进 1 ms，并根据 SysTick 配置产生节拍；中断处理另有有限指令预算。运行倍率控制目标逻辑时间推进速度，实际速度受电脑性能影响。这不能用于测量真实 CPU 性能、精密延时或硬件中断延迟。
+Unicorn.js 内核在翻译上百条连续浮点指令的基本块时会中止（`-O3` 展开的累加循环会产生这种代码）。装载时会扫描出这类代码所在的 1 KB 页，执行到这些页时分段翻译；遇到这种情况时文件信息里会显示“已分段执行”。
 
-LCD 画面来自实际 GPIO 写屏，前端没有预设 `Hello,world.` 或根据文件名伪造输出。模型也不通过函数名替换用户的 LCD/HAL 函数。
+LCD 画面来自实际 GPIO 写屏，前端没有预设输出，也不通过函数名替换用户的 LCD/HAL 函数。
 
 ## 结构
 
-- `site/elf.js`：ELF32 装载和范围检查。
-- `site/machine.js`：执行内核适配、G431 的有限外设与板级连接。
+- `site/elf.js`：ELF32 与 Intel HEX 装载、范围检查。
+- `site/machine.js`：执行内核适配、时钟、NVIC、GPIO、ADC、DMA、USART、RTC、EXTI 与板级连接。
+- `site/timer.js`：通用/高级定时器、引脚复用与 PWM / 捕获。
+- `site/i2c.js`：PB6/PB7 总线上的 M24C02 与 MCP4017。
 - `site/lcd.js`：LCD 寄存器、GRAM 和横屏像素转换。
-- `site/worker.js`：独立线程运行、暂停、输入及画面消息。
+- `site/worker.js`：独立线程运行、暂停、输入、复位与画面消息。
 - `site/app.js`、`index.html`、`style.css`：实验台界面。
 - `site/vendor/unicorn_arm.js`：固定版本的第三方 ARM WASM 内核，自包含文件。
 - `site/README.md`、`LICENSE.txt`、`THIRD_PARTY.md`：根目录同名文件的副本。Pages 只发布 `site/`，GPL 要求许可与源码说明随内核一起分发；修改根目录文件后需同步。
 - `site/vendor/source/`：Unicorn.js 与 Unicorn 内核的对应源码包。
-- `tests/smoke.cjs`：用现有固件验证屏幕、按键、ADC、捕获及串口的针对性检查。
+- `tests/unit.cjs`、`tests/fixtures/`：外设模型单元测试与自带的测试固件（汇编源码与 HEX）。
+- `tests/smoke.cjs`：用 BSP 与模板固件验证屏幕、按键、ADC、捕获及串口。
+- `tests/reference.cjs`：用历届参考工程固件做端到端验收。
 - `serve.cjs`、`start.cmd`：仅用于本机预览的静态服务器。
 - `VALIDATION.md`：验收记录。
 
 ## 验证
 
-以下命令不构建固件，通常数秒完成。需提供对应本地文件路径，二进制未随项目分发。
+以下命令不构建固件，固件文件不随项目分发。
 
 ```sh
-npm run check    # 语法检查，不需要固件
-npm test -- "路径/HAL_06_LCD.axf" "路径/STM32_Xifeng.elf"
+npm run check    # 语法检查
+npm test         # 外设单元测试，不需要外部固件
+npm run test:smoke -- "路径/HAL_06_LCD.axf" "路径/STM32_Xifeng.elf"
+npm run test:reference -- --p17 "17届省赛.axf" --p16 "16届省赛.axf" --p15 "15届省赛.axf" --n13 "13届国赛.axf"
 ```
 
 屏幕回归校验采用 RGBA SHA-256：

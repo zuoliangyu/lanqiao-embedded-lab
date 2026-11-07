@@ -18,15 +18,16 @@
         <div class="header-actions">
           <button class="text-button" id="help-button">使用说明</button
           ><button class="upload" id="choose-file">
-            载入 ELF <span>↑</span></button
-          ><input id="firmware" type="file" accept=".elf,.axf" hidden />
+            载入固件 <span>↑</span></button
+          ><input id="firmware" type="file" accept=".elf,.axf,.hex" hidden />
         </div>
       </header>
       <section class="toolbar" aria-label="仿真控制">
         <div class="controls">
           <button id="run" class="primary" disabled>▶ 烧录并运行</button
           ><button id="pause" disabled>暂停</button
-          ><button id="reset" disabled>复位</button>
+          ><button id="reset" disabled title="MCU 复位：EEPROM 与 MCP4017 保持">复位</button
+          ><button id="power" disabled title="断电重启：EEPROM 保持，MCP4017 回到上电值">断电重启</button>
         </div>
         <div class="run-settings">
           <label for="speed">运行倍率</label
@@ -34,6 +35,11 @@
             <option value="0.25">0.25×</option>
             <option value="1" selected>1×</option>
             <option value="4">4×</option></select
+          ><label for="timing">时序</label
+          ><select id="timing" title="快速：每毫秒 8000 条指令；精确：每毫秒执行 HCLK/1000 条，接近实物但更慢">
+            <option value="fast">快速</option>
+            <option value="accurate">精确（按主频）</option></select
+          ><span id="rate" class="rate" title="仿真时间 / 实际时间">—</span
           ><span class="divider"></span
           ><span id="status" class="status">等待程序</span>
         </div>
@@ -127,7 +133,12 @@
                 <b>B4</b><small>PA0 · 4</small>
               </button>
             </div>
-            <p class="caption">支持鼠标、触屏和键盘 1–4，松开释放</p>
+            <div class="holds" id="holds" aria-live="polite">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <p class="caption">
+              按住触发，时长按仿真时间计。Shift + 点击或右键锁定按下，可做组合键；键盘 1–4 可同时按。
+            </p>
           </section>
           <section class="card">
             <div class="card-title">
@@ -146,55 +157,47 @@
             <span class="badge">0–3.3 V</span>
           </div>
           <div class="slider-label">
-            <label for="adc0">电位器 R38 <small>PB12 / ADC1</small></label
+            <label for="adc0">电位器 R38 <small>PB12 / ADC1_IN11</small></label
             ><output id="adc0-value">1.65 <small>V</small></output>
           </div>
-          <input
-            id="adc0"
-            type="range"
-            min="0"
-            max="3.3"
-            step="0.01"
-            value="1.65"
-          />
+          <input id="adc0" type="range" min="0" max="3.3" step="0.01" value="1.65" />
           <div class="slider-label">
-            <label for="adc1">电位器 R37 <small>PB15 / ADC2</small></label
+            <label for="adc1">电位器 R37 <small>PB15 / ADC2_IN15</small></label
             ><output id="adc1-value">1.65 <small>V</small></output>
           </div>
-          <input
-            id="adc1"
-            type="range"
-            min="0"
-            max="3.3"
-            step="0.01"
-            value="1.65"
-          />
-          <p class="caption">对应模板的 ADC 通道与循环 DMA 采样</p>
+          <input id="adc1" type="range" min="0" max="3.3" step="0.01" value="1.65" />
+          <div class="pwm-row" title="MCP4017 的 W–B 端与 R17（10 kΩ）上拉分压，经 J15 接 PB14">
+            <span>MCP4017 → PB14 / ADC1_IN5</span><strong id="mcp">—</strong>
+          </div>
+          <div class="pwm-row">
+            <label for="mcp-ohms">MCP4017 型号</label
+            ><select id="mcp-ohms" class="mini">
+              <option value="5000">-502 · 5 kΩ</option>
+              <option value="10000">-103 · 10 kΩ</option>
+              <option value="50000">-503 · 50 kΩ</option>
+              <option value="100000" selected>-104 · 100 kΩ</option>
+            </select>
+          </div>
+          <p class="caption">按 ADC 序列逐通道转换，支持 DMA、轮询和中断读取</p>
         </section>
         <section class="card">
           <div class="card-title">
-            <h2><span class="number">06</span> 频率与 PWM</h2>
-            <span class="badge">逻辑信号</span>
+            <h2><span class="number">06</span> 脉冲输入</h2>
+            <span class="badge">TLC555 方波</span>
           </div>
           <div class="slider-label">
-            <label for="frequency">捕获输入 <small>TIM3 / PB4</small></label
-            ><output id="frequency-value">1,000 <small>Hz</small></output>
+            <label for="sig-PB4">电位器 R39 <small>PB4</small></label
+            ><output id="sig-PB4-value">1,000 <small>Hz</small></output>
           </div>
-          <input
-            id="frequency"
-            type="range"
-            min="0"
-            max="20000"
-            step="100"
-            value="1000"
-          />
-          <div class="pwm-row">
-            <span>TIM1 · CH1</span><strong id="pwm0">未启用</strong>
+          <input id="sig-PB4" data-pin="PB4" class="signal" type="range" min="0" max="20000" step="10" value="1000" />
+          <p class="route" id="route-PB4">未接入定时器</p>
+          <div class="slider-label">
+            <label for="sig-PA15">电位器 R40 <small>PA15</small></label
+            ><output id="sig-PA15-value">1,000 <small>Hz</small></output>
           </div>
-          <div class="pwm-row">
-            <span>TIM2 · CH2</span><strong id="pwm1">未启用</strong>
-          </div>
-          <p class="caption">按寄存器计算频率与占空比，非电气波形仿真</p>
+          <input id="sig-PA15" data-pin="PA15" class="signal" type="range" min="0" max="20000" step="10" value="1000" />
+          <p class="route" id="route-PA15">未接入定时器</p>
+          <p class="caption">按引脚复用自动连到 TIM3/TIM16（PB4）或 TIM2/TIM8（PA15），支持 DMA 与中断捕获</p>
         </section>
         <section class="card rtc-card">
           <div class="card-title">
@@ -202,13 +205,47 @@
             <span class="badge">RTC</span>
           </div>
           <div class="clock" id="rtc">00:00:00</div>
-          <p class="caption">跟随仿真时间运行，初值由固件设置</p>
+          <p class="date" id="rtc-date">—</p>
+          <p class="caption" id="rtc-note">跟随仿真时间运行，初值由固件设置</p>
           <div class="small-note">暂停时，时钟与程序一起停下。</div>
+        </section>
+      </div>
+      <div class="outputs-grid">
+        <section class="card">
+          <div class="card-title">
+            <h2><span class="number">08</span> PWM 输出</h2>
+            <span class="badge">按引脚</span>
+          </div>
+          <table class="pwm-table">
+            <thead>
+              <tr><th>引脚</th><th>来源</th><th>频率</th><th>占空比</th></tr>
+            </thead>
+            <tbody id="pwm-rows"></tbody>
+          </table>
+          <div class="trend-head">
+            <label for="trend-pin">趋势（近 10 s 仿真时间）</label
+            ><select id="trend-pin" class="mini">
+              <option>PA1</option><option>PA2</option><option>PA6</option><option>PA7</option>
+            </select>
+          </div>
+          <canvas id="trend" width="640" height="120" aria-label="PWM 频率与占空比趋势"></canvas>
+          <p class="caption">按定时器寄存器和引脚复用计算，非电气波形；实线为占空比，虚线为频率</p>
+        </section>
+        <section class="card">
+          <div class="card-title">
+            <h2><span class="number">09</span> EEPROM</h2>
+            <span class="badge">M24C02 · 0xA0</span>
+          </div>
+          <div class="eeprom" id="eeprom" aria-label="EEPROM 256 字节内容"></div>
+          <div class="eeprom-actions">
+            <span id="eeprom-note">复位、断电重启后保持，并保存在本浏览器</span
+            ><button id="eeprom-clear" class="text-button">全部写 0xFF</button>
+          </div>
         </section>
       </div>
       <section class="card serial-card">
         <div class="card-title">
-          <h2><span class="number">08</span> 串口终端</h2>
+          <h2><span class="number">10</span> 串口终端 <span class="baud" id="baud">USART1 未配置</span></h2>
           <button id="clear-serial" class="text-button">清空显示</button>
         </div>
         <pre id="serial" aria-label="串口输出">等待 USART1 输出…</pre>
@@ -228,19 +265,20 @@
         <summary>使用说明与当前兼容范围 <span>＋</span></summary>
         <div class="help-body">
           <p>
-            1. 在 Keil 或 STM32CubeIDE 编译 STM32G431RB 程序，选择生成的 ELF /
-            AXF。2. 点击“烧录并运行”。3. 通过按键、电位器及串口输入与固件交互。
+            1. 在 Keil 或 STM32CubeIDE 编译 STM32G431RB 程序，选择生成的 ELF / AXF / HEX。
+            2. 点击“烧录并运行”。3. 通过按键、电位器、脉冲源及串口与固件交互。
           </p>
           <p>
-            已验证 CT117E BSP 的 HAL LCD 示例和 STM32_Xifeng
-            模板。支持基本启动、SysTick、GPIO、LCD、按键、LED，以及模板使用的
-            ADC / DMA、RTC、TIM 和 USART1
-            功能。它是面向这些示例的实验性仿真器，不是完整 G431 芯片模型。
+            已用 BSP 的 LCD 示例、STM32_Xifeng 模板和第 12–17 届参考工程验证。支持
+            LCD（含 R01/R60 翻转显示）、按键、LED、ADC1/ADC2（DMA、轮询、中断）、
+            TIM1/2/3/4/6/7/8/15/16/17（PWM、输入捕获、更新与捕获中断）、PB4/PA15 脉冲源、
+            USART1（轮询、中断、DMA 收发）、RTC（日期与闹钟 A）、EXTI、PB6/PB7 软件 I²C 上的
+            M24C02 与 MCP4017。它面向竞赛板的常用外设，不是完整 G431 芯片模型；扩展板未实现。
           </p>
           <p>
-            仿真采用逻辑时间，不保证指令周期、电气特性或中断延迟与实物一致。USB、SPI
-            Flash、I²C 器件、复杂中断嵌套与 RTOS
-            尚未实现。显示黑屏时，请先检查程序是否调用了显示函数。
+            “快速”时序每仿真毫秒执行 8000 条指令，界面流畅，但 CPU 密集的代码（如整屏刷新）比实物慢约
+            10 倍；“精确”按 HCLK 执行，接近实物，浏览器中运行会明显慢于实时。两种模式都不模拟流水线、
+            总线等待或电气特性。USB、SPI Flash、CAN、看门狗与低功耗尚未实现。显示黑屏时，请先检查程序是否调用了显示函数。
           </p>
           <label for="lcd-model">LCD 控制器（下次载入或复位生效）</label
           ><select id="lcd-model">
