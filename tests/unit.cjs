@@ -123,7 +123,8 @@ test("MCP4017 与 PB14 / ADC1_IN5 轮询转换", (u) => {
   assert.equal(m.r(adc) & 4, 4, "EOC 置位");
   const before = m.r(adc + 0x40);
   assert.equal(m.r(adc) & 4, 0, "读 DR 清除 EOC");
-  assert.equal(before, Math.round((m.mcp().volts / 3.3) * 4095));
+  // 未校准：比理想值偏低 67 LSB，另有约 2 LSB 噪声
+  assert(Math.abs(before - (Math.round((m.mcp().volts / 3.3) * 4095) - 67)) <= 8, "PB14 读数 " + before);
   bus.start();
   assert(bus.send(0x5e));
   assert(bus.send(0x7f));
@@ -134,6 +135,38 @@ test("MCP4017 与 PB14 / ADC1_IN5 轮询转换", (u) => {
   bus.stop();
   m.w(adc + 8, 4);
   assert(m.r(adc + 0x40) > before, "滑片增大后电压升高");
+  m.close();
+});
+test("ADC 校准：未校准偏低约 67 LSB，ADCAL 后写入 CALFACT 并恢复", (u) => {
+  const m = setup(u),
+    adc = 0x50000000,
+    read = () => {
+      let sum = 0;
+      for (let k = 0; k < 64; k++) {
+        m.w(adc + 8, 5);
+        sum += m.r(adc + 0x40);
+      }
+      return sum / 64;
+    };
+  m.adc[0] = 3.3;
+  m.w(adc + 0x30, 11 << 6);
+  m.w(adc + 8, 1);
+  const raw = read();
+  assert(Math.abs(raw - 4028) < 2, "未校准满量程平均约 4028，实际 " + raw.toFixed(1));
+  const volts = (raw / 4096) * 3.3;
+  assert(volts > 3.235 && volts < 3.255, "换算后在 3.24 / 3.25 之间（与实物一致），实际 " + volts.toFixed(4));
+  m.w(adc + 8, 2);
+  m.w(adc + 8, 0x80000000);
+  assert.equal(m.r(adc + 0xb4) & 0x7f, 67, "校准后 CALFACT_S");
+  assert.equal(m.r(adc + 8) >>> 31, 0, "ADCAL 已清除");
+  m.w(adc + 8, 1);
+  assert(read() > 4093, "校准后满量程接近 4095");
+  m.adc[0] = 1.65;
+  assert(Math.abs(read() - 2047.5) < 1.5, "校准后中点");
+  m.w(adc + 8, 2);
+  m.w(adc + 0xb4, 0);
+  m.w(adc + 8, 1);
+  assert.equal(m.adcError(0), -67, "手动把 CALFACT 写 0 回到未校准");
   m.close();
 });
 test("TIM2_CH1（PA15）捕获中断逐边沿响应，中断内浮点不破坏主程序", (u) => {

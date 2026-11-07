@@ -81,8 +81,10 @@ function symbols(bytes) {
   assert.equal(key(), 0);
   t.adc = [0.825, 2.475];
   t.step(40);
-  assert.equal(t.readWord(address("dma_buff")), 1024);
-  assert.equal(t.readWord(address("dma_buff") + 120), 3071);
+  // 模板没有调用 HAL_ADCEx_Calibration_Start：读数比理想值（1024 / 3071）偏低约 67 LSB，另有约 2 LSB 噪声。
+  assert(Math.abs(t.readWord(address("dma_buff")) - 957) <= 8, "未校准 0.825 V");
+  assert(Math.abs(t.readWord(address("dma_buff") + 120) - 3004) <= 8, "未校准 2.475 V");
+  assert.equal(t.adcError(0), -67);
   const buf = Uint8Array.from(t.e.mem_read(address("adc_value"), 8));
   const floats = new DataView(buf.buffer);
   assert(Number.isFinite(floats.getFloat32(0, true)));

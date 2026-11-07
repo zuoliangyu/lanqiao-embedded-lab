@@ -192,6 +192,22 @@ function render(data) {
     el.textContent = c.source ? "→ " + c.source + " 输入捕获" : "未接入定时器";
     el.title = c.source ? "" : "该引脚当前没有配置成定时器的复用功能";
   }
+  // ADC 校准状态：未调用 HAL_ADCEx_Calibration_Start 时读数整体偏低，与实物一致。
+  const cal = $("adc-cal"),
+    worst = Math.min(...data.adcError);
+  if (data.adcError.every((e) => e === 0)) {
+    cal.textContent = "ADC 已校准";
+    cal.title = "";
+  } else {
+    cal.textContent = (worst < 0 ? "ADC 未校准 · 偏低约 " : "ADC 校准值偏差 ") + Math.abs(worst) + " LSB";
+    cal.title =
+      "固件没有调用 HAL_ADCEx_Calibration_Start（或 CALFACT 写入了错误的值），读数整体偏差约 " +
+      Math.abs(worst) +
+      " LSB，3.3 V 会读成约 " +
+      ((3.3 * (4095 + worst)) / 4096).toFixed(2) +
+      " V，与实物一致。在启动 ADC 前调用 HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED) 即可消除。";
+  }
+  cal.classList.toggle("warn", worst !== 0);
   $("mcp").textContent =
     "N=" + data.wiper + " · " + (data.mcp.ohms / 1000).toFixed(1) + " kΩ · " + data.mcp.volts.toFixed(2) + " V";
   board.wiper = data.wiper;

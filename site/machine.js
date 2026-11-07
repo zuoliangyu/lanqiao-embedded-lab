@@ -4,6 +4,10 @@
   // 快速模式下每个仿真毫秒执行的指令数；精确模式按 HCLK 计算。
   const FAST_IPMS = 8000;
   const ADC_BASE = [0x50000000, 0x50000100];
+  // ADC 自校准消除的是偏移误差（RM0440 21.4.8）。上电时 CALFACT=0，未校准的读数整体偏低；
+  // 按 CT117E 实测：R37/R38 拧到 3.3 V 时，未校准平均约 4028，即偏低约 67 LSB。
+  const ADC_CALFACT = [67, 67],
+    ADC_NOISE_LSB = 2;
   const HSE = 24000000;
   class Machine {
     constructor(uc, firmware, options = {}) {
@@ -44,6 +48,7 @@
       this.options = options;
       this.dmaStates = new Map();
       this.adcIndex = [0, 0];
+      this.seed = (options.seed || 0x2024) >>> 0;
       this.rxIdle = false;
       this.rtcMs = 0;
       this.extiLevels = -1;
@@ -638,6 +643,14 @@
         off = a & 0xff;
       if (off === 0) this.regs.set(a, old & ~v);
       if (off !== 8) return;
+      // ADCAL：硬件完成校准并把校准值写入 CALFACT（ADCALDIF 选择单端或差分）。
+      if (v & 0x80000000 && !(old & 1)) {
+        const cal = this.get(base + 0xb4);
+        this.regs.set(
+          base + 0xb4,
+          v & 0x40000000 ? (cal & ~0x7f0000) | (ADC_CALFACT[i] << 16) : (cal & ~0x7f) | ADC_CALFACT[i],
+        );
+      }
       let cr = v & ~0x80000000;
       if (v & 2) {
         cr &= ~3;
@@ -673,13 +686,27 @@
         cfgr = this.get(base + 0x0c),
         bits = [12, 10, 8, 6][(cfgr >>> 3) & 3],
         ch = this.adcChannel(base, this.adcIndex[i] % len),
-        volts = Math.min(3.3, Math.max(0, this.adcVolts(i, ch)));
-      let value = Math.round((volts / 3.3) * ((1 << bits) - 1));
+        volts = Math.min(3.3, Math.max(0, this.adcVolts(i, ch))),
+        code = (volts / 3.3) * 4095 + this.adcError(i) + this.noise() * ADC_NOISE_LSB;
+      let value = Math.min(4095, Math.max(0, Math.round(code))) >>> (12 - bits);
       if (cfgr & 0x8000) value <<= 16 - bits;
       this.regs.set(base + 0x40, value);
       this.adcIndex[i] = (this.adcIndex[i] + 1) % len;
       this.regs.set(base, this.get(base) | 4 | (this.adcIndex[i] === 0 ? 8 : 0));
       if (cfgr & 1) this.dmaRequest(base + 0x40, value);
+    }
+    // 12 位下的偏移误差（LSB）：0 表示已正确校准。
+    adcError(i) {
+      return (this.get(ADC_BASE[i] + 0xb4) & 0x7f) - ADC_CALFACT[i];
+    }
+    // 近似标准正态的确定性噪声（固定种子，便于复现测试结果）。
+    noise() {
+      let sum = 0;
+      for (let k = 0; k < 3; k++) {
+        this.seed = (Math.imul(this.seed ^ (this.seed >>> 15), 0x2c1b3c6d) + 0x6d2b79f5) >>> 0;
+        sum += this.seed / 4294967296;
+      }
+      return (sum - 1.5) * 2;
     }
     // ---- 串口 ----
     usartISR() {

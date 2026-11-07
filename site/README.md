@@ -74,7 +74,7 @@ LCD 左侧提供 `Line0`～`Line9` 辅助行号，顶部提供 `0`～`19` 列号
 | 时钟 | HSI/HSE(24 MHz)/PLL、AHB 与 APB1/APB2 分频；APB 分频不为 1 时定时器时钟加倍 |
 | LCD | GPIOC 16 位并口，PB9 CS、PB8 RS、PB5 WR、PA8 RD；932X 寄存器/GRAM、窗口、自增和 RGB565；R01 SS 与 R60 GS 翻转显示。UC8230 为实验选项 |
 | 按键 / LED / EXTI | B1–B4 低电平有效，可组合；EXTI 上下沿触发与 SYSCFG 端口选择；LED 按 74LS573 透明/锁存更新 |
-| ADC | ADC1/ADC2 按 SQR 序列逐通道转换：PB12（IN11）、PB15（ADC2 IN15）、PB14（IN5，MCP4017 分压）；EOC/EOS 标志，DMA、轮询、中断读取；分辨率与左对齐 |
+| ADC | ADC1/ADC2 按 SQR 序列逐通道转换：PB12（IN11）、PB15（ADC2 IN15）、PB14（IN5，MCP4017 分压）；EOC/EOS 标志，DMA、轮询、中断读取；分辨率与左对齐。校准：CALFACT 上电为 0，未调用 `HAL_ADCEx_Calibration_Start` 时读数偏低约 67 LSB（满量程 3.3 V 显示 3.24/3.25，与 CT117E 实测一致），校准后恢复；每次转换另有约 2 LSB 噪声 |
 | 定时器 | 计数、预分频、自动重装、更新事件与 URS/UDIS、重复计数；输入捕获（直接/交叉输入、极性、预分频、溢出标志）、复位从模式（PWM 输入测频）、捕获 DMA 与逐边沿中断；PWM1/PWM2/强制电平/翻转模式、互补输出、MOE。按 GPIO 复用识别 PA1/PA2/PA6/PA7/PA15/PB4/PC0 上的通道 |
 | 脉冲源 | R39→PB4、R40→PA15 两路 TLC555 方波，600–32000 Hz（与板上电位器可调范围一致），占空比 50% |
 | I²C 器件 | 按 SCL/SDA 电平识别起止条件与 ACK：M24C02（0xA0，256 字节，16 字节页回卷，写后约 5 ms 不应答）；MCP4017（0x5E，7 位滑片，阻值型号可选，与 R17 分压到 PB14）。EEPROM 内容保存在浏览器本地 |

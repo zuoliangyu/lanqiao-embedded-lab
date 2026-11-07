@@ -66,6 +66,7 @@ function snapshot(force = false) {
       baud: machine.baud(),
       wiper: machine.i2c.wiper,
       mcp,
+      adcError: [machine.adcError(0), machine.adcError(1)],
       holds: machine.keyDownAt.map((t) => (t === null ? null : machine.ms - t)),
       lastHold: machine.lastHold,
       timing: machine.timing,

@@ -159,7 +159,7 @@
         <section class="card">
           <div class="card-title">
             <h2>模拟输入</h2>
-            <span class="hint">0–3.3 V</span>
+            <span class="hint" id="adc-cal">0–3.3 V</span>
           </div>
           <div class="slider-label">
             <label for="adc0">R38 <small>PB12 · ADC1_IN11</small></label
@@ -271,6 +271,7 @@
           TIM1/2/3/4/6/7/8/15/16/17（PWM、输入捕获、更新与捕获中断）、PB4/PA15 脉冲源、
           USART1（轮询、中断、DMA 收发）、RTC（日期与闹钟 A）、EXTI、PB6/PB7 软件 I²C 上的
           M24C02 与 MCP4017。它面向竞赛板的常用外设，不是完整 G431 芯片模型；扩展板未实现。
+          ADC 与实物一样需要校准：没有调用 HAL_ADCEx_Calibration_Start 时读数偏低约 67 LSB（3.3 V 显示 3.24/3.25）。
         </p>
         <p>
           “快速”时序每仿真毫秒执行 8000 条指令，界面流畅，但 CPU 密集的代码（如整屏刷新）比实物慢约

@@ -258,6 +258,11 @@ h2 {
   font-weight: 400;
   color: var(--muted);
 }
+.hint.warn {
+  color: #b2552a;
+  font-weight: 600;
+  cursor: help;
+}
 .caption {
   font-size: 11px;
   margin-top: 6px;
