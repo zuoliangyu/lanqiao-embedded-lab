@@ -1,0 +1,85 @@
+name: 报告问题
+description: 固件跑不起来、外设行为和实物不一致、界面出错等
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。仿真问题几乎都和具体固件用到的外设、写法有关，信息越具体越容易复现。
+        **请不要在 issue 里贴不想公开的比赛工程源码。** 需要固件时，优先提供能复现问题的最小工程或 .hex。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 出了什么问题
+      description: 你做了什么操作，期望是什么结果（最好对照实物），实际是什么结果。
+      placeholder: |
+        载入 16 届省赛工程，调 R40，PA15 测到的频率一直是 0……
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: peripherals
+    attributes:
+      label: 涉及的外设与写法
+      description: 例如 TIM2_CH1 中断捕获、ADC 轮询、EEPROM 页写、USART DMA 发送。
+      placeholder: TIM8_CH1 输入捕获 + DMA
+    validations:
+      required: true
+
+  - type: dropdown
+    id: firmware
+    attributes:
+      label: 固件来源
+      options:
+        - Keil MDK（ARMCC / ARMCLANG）
+        - STM32CubeIDE / GCC
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: timing
+    attributes:
+      label: 时序模式
+      options:
+        - 快速
+        - 精确（按主频）
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: 浏览器与版本
+      placeholder: Chrome 140 / Edge 140
+    validations:
+      required: true
+
+  - type: textarea
+    id: messages
+    attributes:
+      label: 页面提示
+      description: 顶部的错误或“未支持的外设访问”提示原文，以及“使用说明与兼容范围”里列出的地址。
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 同一固件在实物板上行为正常（或已说明实物上的表现）
+          required: false
+        - label: 我已经搜索过现有 issue，没有重复的
+          required: true

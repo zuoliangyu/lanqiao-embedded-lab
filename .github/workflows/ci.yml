@@ -1,0 +1,26 @@
+name: 检查
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: 语法检查与外设单元测试
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # 无依赖、无构建；只用仓库自带的测试固件，不需要用户的比赛工程。
+      - run: npm run check
+      - run: npm test

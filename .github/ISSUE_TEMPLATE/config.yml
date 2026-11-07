@@ -1,0 +1,6 @@
+# blank_issues_enabled 保持 true：只是想问用法的人，有个不用填表的口子。
+blank_issues_enabled: true
+contact_links:
+  - name: 在线实验台
+    url: https://zuoliangyu.github.io/lanqiao-embedded-lab/
+    about: 直接在浏览器里载入固件试用。

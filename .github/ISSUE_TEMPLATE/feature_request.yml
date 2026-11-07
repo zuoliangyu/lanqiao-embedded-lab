@@ -1,0 +1,26 @@
+name: 功能建议
+description: 需要支持的外设、写法或界面功能
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: 想要什么
+      description: 需要支持哪个外设或功能，界面上希望怎么操作、怎么显示。
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 用在哪里
+      description: 哪一届、哪道题或哪种常见写法会用到。竞赛板以外的扩展板功能请注明。
+      placeholder: 第 14 届国赛，PA1 输入捕获同时测频率和占空比
+    validations:
+      required: true
+
+  - type: textarea
+    id: hardware
+    attributes:
+      label: 硬件依据
+      description: 相关引脚、原理图位置或芯片手册章节，有的话填上。

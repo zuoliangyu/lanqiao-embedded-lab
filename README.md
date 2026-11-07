@@ -2,6 +2,8 @@
 
 `lanqiao-embedded-lab`：面向蓝桥杯嵌入式赛项 CT117E-M4 竞赛板的浏览器仿真实验台。
 
+在线使用：<https://zuoliangyu.github.io/lanqiao-embedded-lab/>
+
 载入 STM32G431RBT6 的 ELF / AXF，在浏览器中执行 ARM 指令，并通过 CT117E-M4 V1.2 的 GPIO 总线驱动 LCD、按键和 LED。计算在浏览器 Web Worker 内进行，GitHub Pages 仅托管静态文件。无需开发板、后端服务或服务器租赁，固件文件不上传。
 
 覆盖竞赛板（不含扩展板）上历届真题常用的外设，已用 BSP、模板和第 12–17 届参考工程验证。它是实验性原型，不保证所有 STM32G431 固件兼容，也不提供周期精确或电气级仿真。
@@ -22,6 +24,8 @@ LCD 左侧提供 `Line0`～`Line9` 辅助行号，顶部提供 `0`～`19` 列号
 
 ## GitHub Pages 部署
 
+以下步骤用于自行部署副本。
+
 1. 新建一个 GitHub 仓库。GitHub Free 的 Pages 使用公开仓库。
 2. 将本项目根目录的文件提交到仓库 `main` 分支，包括 `site/` 和 `.github/workflows/pages.yml`。不要上传原有 STM32 工程、个人 ELF、AXF 或资源包。
 3. 在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**。
@@ -30,7 +34,7 @@ LCD 左侧提供 `Line0`～`Line9` 辅助行号，顶部提供 `0`～`19` 列号
 
 工作流只上传静态文件，不编译固件、不编译 WebAssembly、不运行测试。所有资源使用相对地址，支持仓库子路径部署。Actions 仅做发布，不充当运行后端。GitHub Pages 的带宽和容量规则仍适用。
 
-项目已初始化为本地 git 仓库，尚未创建远程仓库或执行公开发布。
+本仓库推送到 `main` 且 `site/` 有改动时会自动发布到 GitHub Pages；`检查` 工作流运行语法检查与单元测试，CodeQL 每周扫描一次。
 
 ## 时序模式
 
