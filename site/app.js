@@ -214,7 +214,7 @@ function render(data) {
     : "未检测到未支持的外设区域访问；这不代表所有寄存器行为均已覆盖。";
   if (data.unknown.length && !errorState) {
     $("alert").hidden = false;
-    $("alert").textContent = "发现未支持的外设访问，结果可能不完整。展开下方“兼容范围”查看地址。";
+    $("alert").textContent = "发现未支持的外设访问，结果可能不完整。点“使用说明”查看地址。";
   }
   if (data.ms < lastMs) trend.clear();
   lastMs = data.ms;
@@ -336,6 +336,7 @@ $("mcp-ohms").onchange = () => {
   post({ type: "mcp-ohms", value: board.mcpOhms });
 };
 $("eeprom-clear").onclick = () => {
+  if (!confirm("把 EEPROM 的 256 字节全部写成 0xFF？浏览器里保存的内容也会清除。")) return;
   board.eeprom.fill(0xff);
   saveEEPROM();
   renderEEPROM();
@@ -430,13 +431,25 @@ $("clear-serial").onclick = () => {
   serialOffset = lastSerial.length;
   $("serial").textContent = "";
 };
-$("help-button").onclick = () => {
-  $("help").open = true;
-  $("help").scrollIntoView({
-    behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
-  });
-};
+$("help-button").onclick = () => $("help").showModal();
+$("alert").onclick = () => ($("alert").hidden = true);
 $("readme-link").href = "README.md";
+$("about-button").onclick = () => $("about").showModal();
+// 点击弹窗外的遮罩关闭
+for (const d of [$("about"), $("help")])
+  d.onclick = (e) => {
+    if (e.target === d) d.close();
+  };
+$("copy-qq").onclick = async () => {
+  try {
+    await navigator.clipboard.writeText($("qq-group").textContent);
+    $("copy-qq").textContent = "已复制";
+  } catch {
+    getSelection().selectAllChildren($("qq-group"));
+    $("copy-qq").textContent = "已选中，请按 Ctrl+C";
+  }
+  setTimeout(() => ($("copy-qq").textContent = "复制群号"), 2000);
+};
 if (location.protocol === "file:")
   showError(
     "请使用项目中的启动脚本，或把 site 目录部署到 GitHub Pages；浏览器不允许 file:// 页面启动仿真 Worker。",

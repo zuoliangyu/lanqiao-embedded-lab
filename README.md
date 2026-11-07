@@ -96,7 +96,7 @@ LCD 画面来自实际 GPIO 写屏，前端没有预设输出，也不通过函�
 - `site/i2c.js`：PB6/PB7 总线上的 M24C02 与 MCP4017。
 - `site/lcd.js`：LCD 寄存器、GRAM 和横屏像素转换。
 - `site/worker.js`：独立线程运行、暂停、输入、复位与画面消息。
-- `site/app.js`、`index.html`、`style.css`：实验台界面。
+- `site/app.js`、`index.html`、`style.css`：实验台界面。三列布局，1920×1080 与 1440×900 浏览器窗口在 100% 缩放下一屏显示全部面板；窗口较矮时自动压缩间距，宽度小于 1200 px 时改为两列。
 - `site/vendor/unicorn_arm.js`：固定版本的第三方 ARM WASM 内核，自包含文件。
 - `site/README.md`、`LICENSE.txt`、`THIRD_PARTY.md`：根目录同名文件的副本。Pages 只发布 `site/`，GPL 要求许可与源码说明随内核一起分发；修改根目录文件后需同步。
 - `site/vendor/source/`：Unicorn.js 与 Unicorn 内核的对应源码包。
@@ -120,6 +120,10 @@ npm run test:reference -- --p17 "17届省赛.axf" --p16 "16届省赛.axf" --p15 
 屏幕回归校验采用 RGBA SHA-256：
 
 `d17eb71de34d373670b9d1ba100a7a6d0510744bdd165b3b2ab7e18ba62f44bb`
+
+## 作者
+
+左岚 · [哔哩哔哩](https://space.bilibili.com/27619688) · QQ 交流群 1019721429
 
 ## 许可
 
